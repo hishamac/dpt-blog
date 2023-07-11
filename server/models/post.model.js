@@ -6,11 +6,6 @@ const postSchema = new mongoose.Schema({
     trim: true,
     required: true
   },
-  description: {
-    type: String,
-    trim: true,
-    required: true
-  },
   content: {
     type: String,
     trim: true,
@@ -19,22 +14,17 @@ const postSchema = new mongoose.Schema({
   image: {
     type: String,
   },
-  cloudinary_id: {
-    type: String,
-  },
   author: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'Author'
   },
   date: {
     type: Date,
     default: Date.now
   },
-  // a blog post can have multiple comments, so it should be in a array.
-  // all comments info should be kept in this array of this blog post.
-  comments: [{
+  tags: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Comment'
+    ref: 'Tag'
   }]
 })
 

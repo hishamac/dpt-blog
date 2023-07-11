@@ -7,7 +7,7 @@ dotenv.config();
 
 // set up server
 const app = express()
-const PORT = process.env.PORT || 6000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server started on port: ${PORT}`));
 
 // app.use
@@ -30,6 +30,7 @@ app.use(
 connectDB()
 
 // set up routes
-app.use("/api/auth", require("./routers/user.router"))
+app.use("/api/auth", require("./routers/admin.router"))
 app.use("/api/post", require("./routers/post.router"))
-app.use("/api", require("./routers/comment.router"))
+app.use("/api/author", require("./routers/author.router"))
+app.use("/api/tag", require("./routers/tag.router"))

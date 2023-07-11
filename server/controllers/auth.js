@@ -1,55 +1,40 @@
 const cloudinary = require("../utils/cloudinary");
-const User = require("../models/user.model");
+const Admin = require("../models/admin.model");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, } = req.body;
+    const { username, password } = req.body;
 
     // validation
 
-    if (!name || !email || !password)
+    if (!username || !password)
       return res
         .status(400)
         .json({ errorMessage: "Please enter all required fields." });
 
-    if (password.length < 6)
+    let admin = await Admin.findOne({ username });
+    if (admin)
       return res.status(400).json({
-        errorMessage: "Please enter a password of at least 6 characters.",
+        errorMessage: "An account with this username already exists.",
       });
 
-    let user = await User.findOne({ email });
-    if (user)
-      return res.status(400).json({
-        errorMessage: "An account with this email already exists.",
-      });
-
-    // hash the password
-
-    const result = await cloudinary.uploader.upload(req.file.path);
-
-    // save a new user account to the db
-
-    user = new User({
-      name,
-      email,
+    admin = new Admin({
+      username,
       password,
-      avatar: result.secure_url,
-      cloudinary_id: result.public_id,
-      role:'user'
     });
 
     const salt = await bcrypt.genSalt();
-    user.password = await bcrypt.hash(user.password, salt);
+    admin.password = await bcrypt.hash(admin.password, salt);
 
-    await user.save();
-    console.log(user)
+    await admin.save();
+    console.log(admin);
+
     // sign the token
-
     const token = jwt.sign(
       {
-        _id: user._id,
+        _id: admin._id,
       },
       process.env.JWT_SECRET
     );
@@ -59,43 +44,45 @@ exports.register = async (req, res) => {
     return res
       .cookie("token", token, {
         httpOnly: true,
-        secure: true,
-        sameSite: "none",
       })
-      .send();
+      .send("Admin created");
   } catch (err) {
     console.error(err);
-    return res.status(500).send();
+    return res.status(500).send("Error while creating admin");
   }
-}
+};
 
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { username, password } = req.body;
 
     // validate
 
-    if (!email || !password)
+    if (!username || !password)
       return res
         .status(400)
         .json({ errorMessage: "Please enter all required fields." });
 
-    const existingUser = await User.findOne({ email });
-    if (!existingUser)
-      return res.status(401).json({ errorMessage: "Wrong email or password." });
+    const existingAdmin = await Admin.findOne({ username });
+    if (!existingAdmin)
+      return res
+        .status(401)
+        .json({ errorMessage: "Wrong username or password." });
 
     const passwordCorrect = await bcrypt.compare(
       password,
-      existingUser.password
+      existingAdmin.password
     );
     if (!passwordCorrect)
-      return res.status(401).json({ errorMessage: "Wrong email or password." });
+      return res
+        .status(401)
+        .json({ errorMessage: "Wrong username or password." });
 
     // sign the token
 
     const token = jwt.sign(
       {
-        _id: existingUser._id,
+        _id: existingAdmin._id,
       },
       process.env.JWT_SECRET
     );
@@ -105,15 +92,13 @@ exports.login = async (req, res) => {
     res
       .cookie("token", token, {
         httpOnly: true,
-        secure: true,
-        sameSite: "none",
       })
-      .send();
+      .send("Admin logged in");
   } catch (err) {
     console.error(err);
-    res.status(500).send();
+    res.status(500).send("Error while logging in admin");
   }
-}
+};
 
 exports.logout = (req, res) => {
   res
@@ -123,8 +108,8 @@ exports.logout = (req, res) => {
       secure: true,
       sameSite: "none",
     })
-    .send('Logged out');
-}
+    .send("Logged out");
+};
 
 exports.getIsLogged = (req, res) => {
   try {
@@ -132,28 +117,27 @@ exports.getIsLogged = (req, res) => {
     if (!token) return res.send(false);
 
     jwt.verify(token, process.env.JWT_SECRET);
-
     res.send(true);
   } catch (err) {
     res.send(false);
   }
-}
+};
 
-exports.getLoggedUser = async (req, res) => {
+exports.getLoggedAdmin = async (req, res) => {
   const token = req.cookies.token;
   if (!token) return res.send(false);
 
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
-  const user = await User.findById(decoded._id);
-  req.user = user;
-  res.json(user)
-}
+  const admin = await Admin.findById(decoded._id);
+  req.admin = admin;
+  res.json(admin);
+};
 
-exports.getUserRole = async (req, res) => {
+exports.getRole = async (req, res) => {
   const token = req.cookies.token;
   if (!token) return res.send(false);
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
-  const user = await User.findById(decoded._id);
-  req.user = user;
-  res.send(user.role)
-}
+  const admin = await Admin.findById(decoded._id);
+  req.admin = admin;
+  res.send(admin.role);
+};
