@@ -12,7 +12,7 @@ exports.findAll = async (req, res) => {
       path: "author",
     },
   ]);
-  res.json(allPosts);
+  res.json({posts:allPosts});
 };
 
 exports.findPost = async (req, res) => {
