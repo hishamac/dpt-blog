@@ -4,27 +4,31 @@ const cloudinary = require("../utils/cloudinary");
 const jwt = require("jsonwebtoken");
 
 exports.findAll = async (req, res) => {
-  const allPosts = await Post.find().populate([
-    {
-      path: "tags",
-    },
-    {
-      path: "author",
-    },
-  ]);
-  res.json({posts:allPosts});
+  try {
+    const allPosts = await Post.find().populate([
+      {
+        path: "tags",
+      },
+      {
+        path: "author",
+      },
+    ]);
+    res.json(allPosts);
+  } catch (error) {
+    res.json({ messageType: "error", message: `Problem while getting Posts` });
+  }
 };
 
 exports.findPost = async (req, res) => {
   try {
     const id = req.params.id;
 
-    let post = await Post.findById(id);
+    let post = await Post.find({ slug: id });
     if (!post) {
-      res.status(500).json({ errorMessage: `Post not found` });
+      res.json({ messageType: "error", message: `Post not found` });
     }
 
-    post = await Post.findById(id).populate([
+    post = await Post.find({ slug: id }).populate([
       {
         path: "tags",
       },
@@ -34,7 +38,7 @@ exports.findPost = async (req, res) => {
     ]);
     res.json(post);
   } catch (err) {
-    res.status(500).json({ errorMessage: `Error while finding post` });
+    res.json({ messageType: "error", message: `Problem while finding post` });
   }
 };
 exports.create = async (req, res) => {
@@ -49,13 +53,13 @@ exports.create = async (req, res) => {
       tags: req.body.tags,
     });
     const author = await Author.findById(post.author);
-    if(!author) {
-      return res.status(500).json({ errorMessage: `Author not found` });
+    if (!author) {
+      return res.json({ messageType: "error", message: `Author not found` });
     }
-    const createdPost = await post.save();
-    return res.json(createdPost);
+    await post.save();
+    return res.json({ messageType: "success", message: "New Post created" });
   } catch (err) {
-    return res.status(500).json({ errorMessage: "Cannot create post" });
+    return res.json({ messageType: "error", message: "Cannot create post" });
   }
 };
 
@@ -65,7 +69,7 @@ exports.update = async (req, res) => {
 
     let post = await Post.findById(id);
     if (!post) {
-      res.status(500).json({ errorMessage: `Post not found` });
+      res.json({ messageType: "error", message: `Post not found` });
     }
 
     if (req.file) {
@@ -73,46 +77,76 @@ exports.update = async (req, res) => {
         invalidate: true,
       });
 
-      await Post.findByIdAndUpdate(id, {
-        title: req.body.title,
-        author: req.body.author,
-        content: req.body.content,
-        image: result.secure_url,
-        tags: req.body.tags,
-      }).then((data) => {
+      await Post.findOneAndUpdate(
+        { _id: id },
+        {
+          title: req.body.title,
+          author: req.body.author,
+          content: req.body.content,
+          image: result.secure_url,
+          tags: req.body.tags,
+        },
+        {
+          returnOriginal: false,
+        }
+      ).then((data) => {
         !data
-          ? res.status(500).json({ errorMessage: `Post not found` })
-          : res.json(data);
+          ? res.json({ messageType: "error", message: `Post not found` })
+          : res.json({
+              messageType: "success",
+              message: "Post updated successfully",
+            });
       });
     } else {
-      await Post.findByIdAndUpdate(id, {
-        title: req.body.title,
-        author: req.body.author,
-        content: req.body.content,
-        tags: req.body.tags,
-      }).then((data) => {
+      await Post.findOneAndUpdate(
+        { _id: id },
+        {
+          title: req.body.title,
+          author: req.body.author,
+          content: req.body.content,
+          tags: req.body.tags,
+        },
+        {
+          returnOriginal: false,
+        }
+      ).then((data) => {
         !data
-          ? res.status(500).json({ errorMessage: `Post not found` })
-          : res.json(data);
+          ? res.json({ messageType: "error", message: `Post not found` })
+          : res.json({
+              messageType: "success",
+              message: "Post updated successfully",
+            });
       });
     }
   } catch (err) {
-    return res.status(500).json({ errorMessage: "Cannot update post" });
+    console.log(err);
+    return res.json(err);
   }
 };
 
 exports.delete = (req, res) => {
-  const id = req.params.id;
+  try {
+    const id = req.params.id;
 
-  Post.findByIdAndDelete(id)
-    .then((data) => {
-      !data
-        ? res.status(500).json({ errorMessage: `Post not found` })
-        : res.send({ message: "Post was deleted successfully!" });
-    })
-    .catch((err) => {
-      res.status(500).send({
-        errorMessage: "Cannot delete post",
+    Post.findByIdAndDelete(id)
+      .then((data) => {
+        !data
+          ? res.json({ messageType: "error", message: `Post not found` })
+          : res.send({
+              messageType: "success",
+              message: "Post was deleted successfully!",
+            });
+      })
+      .catch((err) => {
+        res.send({
+          messageType: "error",
+          message: "Sorry, Problem while deleting post",
+        });
       });
+  } catch (error) {
+    res.json({
+      messageType: "error",
+      message: "Sorry, Problem while deleting post",
     });
+  }
 };

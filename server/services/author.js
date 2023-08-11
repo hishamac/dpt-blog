@@ -1,33 +1,46 @@
 const Author = require("../models/author.model");
 const Post = require("../models/post.model");
 const cloudinary = require("../utils/cloudinary");
-const jwt = require("jsonwebtoken");
 
 exports.findAll = async (req, res) => {
-  const allAuthors = await Author.find();
-  res.json(allAuthors);
+  try {
+    const allAuthors = await Author.find();
+    res.json(allAuthors);
+  } catch (error) {
+    res.json({
+      messageType: "error",
+      message: `Error while finding all authors`,
+    });
+  }
 };
 
 exports.findAuthorPosts = async (req, res) => {
-  const id = req.params.id;
+  try {
+    const id = req.params.id;
 
-  const authorPosts = await Post.find({ author: id });
-  res.json(authorPosts);
+    const authorPosts = await Post.find({ author: id });
+    res.json(authorPosts);
+  } catch (error) {
+    res.json({
+      messageType: "error",
+      message: `Error while finding author's posts`,
+    });
+  }
 };
 
 exports.findAuthor = async (req, res) => {
   try {
     const id = req.params.id;
 
-    let author = await Author.findById(id);
+    let author = await Author.find({ slug: id });
     if (!author) {
-      res.status(500).json({ errorMessage: `Author not found` });
+      res.json({ messageType: "error", message: `Author not found` });
     }
 
     author = await Author.findById(id);
     res.json(author);
   } catch (err) {
-    res.status(500).json({ errorMessage: `Error while finding author` });
+    res.json({ messageType: "error", message: `Error while finding author` });
   }
 };
 exports.create = async (req, res) => {
@@ -39,10 +52,10 @@ exports.create = async (req, res) => {
       avatar: result.secure_url,
     });
 
-    const createdAuthor = await author.save();
-    return res.json(createdAuthor);
+    await author.save();
+    return res.json({ messageType: "success", message: "New Author created" });
   } catch (err) {
-    res.status(500).json({ errorMessage: "Cannot create author" });
+    res.json({ messageType: "error", message: "Cannot create author" });
   }
 };
 
@@ -52,7 +65,7 @@ exports.update = async (req, res) => {
 
     let author = await Author.findById(id);
     if (!author) {
-      res.status(500).json({ errorMessage: `Author not found` });
+      res.json({ messageType: "error", message: `Author not found` });
     }
 
     if (req.file) {
@@ -60,40 +73,84 @@ exports.update = async (req, res) => {
         invalidate: true,
       });
 
-      await Author.findByIdAndUpdate(id, {
-        name: req.body.name,
-        avatar: result.secure_url,
-      }).then((data) => {
+      await Author.findOneAndUpdate(
+        { _id: id },
+        {
+          name: req.body.name,
+          avatar: result.secure_url,
+        },
+        {
+          returnOriginal: false,
+        }
+      ).then((data) => {
         !data
-          ? res.status(500).json({ errorMessage: `Author not found` })
-          : res.json(data);
+          ? res.json({ messageType: "error", message: `Author not found` })
+          : res.json({
+              messageType: "success",
+              message: "Author updated Successfully",
+            });
       });
     } else {
-      await Author.findByIdAndUpdate(id, {
-        name: req.body.name,
-      }).then((data) => {
+      await Author.findOneAndUpdate(
+        { _id: id },
+        {
+          name: req.body.name,
+        },
+        {
+          returnOriginal: false,
+        }
+      ).then((data) => {
         !data
-          ? res.status(500).json({ errorMessage: `Author not found` })
-          : res.json(data);
+          ? res.json({ messageType: "error", message: `Author not found` })
+          : res.json({
+              messageType: "success",
+              message: "Author updated Successfully",
+            });
       });
     }
   } catch (err) {
-    return res.status(500).json({ errorMessage: "Cannot update author" });
+    return res.json({
+      messageType: "error",
+      message: "Problem while updating author",
+    });
   }
 };
 
-exports.delete = (req, res) => {
-  const id = req.params.id;
+exports.delete = async (req, res) => {
+  try {
+    const id = req.params.id;
 
-  Author.findByIdAndDelete(id)
-    .then((data) => {
-      !data
-        ? res.status(500).json({ errorMessage: `Author not found` })
-        : res.send({ message: "Author was deleted successfully!" });
-    })
-    .catch((err) => {
-      res.status(500).send({
-        errorMessage: "Cannot delete author",
+    const allPosts = await Post.find();
+    const author = await Author.findById(id);
+
+    if (!author) {
+      return res.json({ messageType: "error", message: `Author not found` });
+    }
+
+    for (let i = 0; i < allPosts.length; i++) {
+      const singlePost = allPosts[i];
+
+      if (singlePost.author.equals(author._id)) {
+        return res.json({ messageType: "error", message: `Author has posts` });
+      }
+    }
+
+    await Author.findByIdAndDelete(id)
+      .then((data) => {
+        !data
+          ? res.json({ messageType: "error", message: `Author not found` })
+          : res.json({
+              messageType: "success",
+              message: "Author was deleted successfully!",
+            });
+      })
+      .catch((err) => {
+        res.json({
+          messageType: "error",
+          message: "Cannot delete author",
+        });
       });
-    });
+  } catch (error) {
+    res.json({ messageType: "error", message: "Cannot delete author" });
+  }
 };

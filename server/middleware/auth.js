@@ -1,20 +1,20 @@
 const jwt = require("jsonwebtoken");
-const Admin = require("../models/admin.model.js");
+const localStorage = require("localStorage");
 
 exports.adminAuth = async (req, res, next) => {
   try {
-    const token = req.cookies.token;
-    if (!token) return res.status(401).json({ errorMessage: "Unauthorized" });
+    const token = localStorage.getItem("token");
+    if (!token) return res.json({ errorMessage: "Unauthorized" });
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const admin = await Admin.findById(decoded._id);
-    if (!admin.role === "admin") {
-      return res.status(401).json({
-        errorMessage: "You are not Admin to perform this action",
+    if (!decoded.toToken.role == "admin") {
+      return res.json({
+        errorMessage: "Unauthorized",
       });
+    } else {
+      req.admin = decoded;
     }
-    req.admin = admin;
     next();
   } catch (err) {
-    res.status(401).json({ errorMessage: "Unauthorized" });
+    res.json({ errorMessage: "3 Unauthorized" });
   }
 };
